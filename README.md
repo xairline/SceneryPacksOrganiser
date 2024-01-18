@@ -1,4 +1,4 @@
-# Scenery Pack Organiser - XP10/11/12 v2.0r1
+# Scenery Pack Organiser - XP10/11/12 v2.1r6
 
 Are you tired of sifting through all the packs in the Custom Scenery folder and reordering them manually?\
 Do you hate having to start and quit X-Plane just to add new scenery packs to the file so you can organise it?\
