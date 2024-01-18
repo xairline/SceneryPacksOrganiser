@@ -67,9 +67,9 @@ shutil.register_unpack_format('7zip', ['.7z', '.dsf'], py7zr.unpack_7zarchive)
 # State version
 if DEBUG:
     print(f"Debug level set to {DEBUG}. The program will be accordingly verbose during execution.")
-    print("It will also display DSF Errors and list packs as sorted in the end.")
+    print("It will also display DSF errors and list packs as sorted in the end.")
     print()
-print("Scenery Pack Organiser version 2.1r6\n")
+print("Scenery Pack Organiser version 2.2b1\n")
 
 # Define where to look for direct X-Plane install traces
 search_path = {}
@@ -142,7 +142,7 @@ while True:
                     for end in ["/\n", "/", "\n", ""]:
                         try:
                             del dct_lines[dct_lines.index(str(xplane_path) + end)]
-                        except ValueError:
+                        except KeyError:
                             pass
                 with open(dct_path, "w", encoding = "utf-8") as dct_file:
                     dct_file.writelines(dct_lines)
@@ -156,7 +156,7 @@ while True:
         print("I couldn't see a Custom Scenery folder here! Please recheck your path. ")
 
 
-# Constant and variable declarations
+# constant declarations
 SCENERY_PATH = scenery_path
 XP10_GLOBAL_AIRPORTS = "SCENERY_PACK Custom Scenery/Global Airports/\n"
 XP12_GLOBAL_AIRPORTS = "SCENERY_PACK *GLOBAL_AIRPORTS*\n"
@@ -166,21 +166,29 @@ FILE_DISAB_LINE_REL = "SCENERY_PACK_DISABLED Custom Scenery/"
 FILE_DISAB_LINE_ABS = "SCENERY_PACK_DISABLED "
 FILE_BEGIN = "I\n1000 Version\nSCENERY\n\n"
 
-measure_time = []
-airport_registry = {}
-disable_registry = {}
-dsffail_registry = []
-unparsed_registry = []
-unsorted_registry = []
-quirks = {"Prefab": [], "AO Overlay": [], "AO Region": [], "AO Root": []}
+# global variable declarations
+measure_time = []       # list to keep writing and popping times
+icao_conflicts = []     # list of ICAO codes that have more than one pack serving it
+icao_registry = {}      # dict of ICAO codes and the number of packs serving each
+disable_registry = {}   # dict that holds the folder line and beginning line of disabled packs
+dsffail_registry = []   # list of errored dsfs
+unparsed_registry = []  # list of .lnk shortcuts that couldn't be parsed
+airport_registry = {"path": [], "line": [], "icaos": []}    
+                        # dict that holds the folder path, file line, and a list of ICAOs served
+                        # to use, get the index via folder path and use that within each key-value
+
+# classification variables
+unsorted_registry = []          # list of packs that couldn't be classified
+quirks = {"Prefab Apt": [], "AO Overlay": [], "AO Region": [], "AO Root": [], "SAM Lib":[]}
 airports = {"Custom": [], "Default": [], "Global": []}
 overlays = {"Custom": [], "Default": []}
 meshes = {"Ortho": [], "Terrain": []}
 misc = {"Plugin": [], "Library": []}
 
 
-# Read old ini and store disabled packs. Ask user if they want to carry them forward
+# Read old ini to get list of disabled packs
 ini_path = SCENERY_PATH / "scenery_packs.ini"
+nay_path = SCENERY_PATH / "scenery_packs_unsorted.ini"
 if ini_path.is_file():
     with open(ini_path, "r", encoding = "utf-8") as ini_file:
         for line in ini_file.readlines():
@@ -188,19 +196,31 @@ if ini_path.is_file():
                 if line.startswith(disabled):
                     disable_registry[line.split(disabled, maxsplit=1)[1].strip("\n")[:-1]] = disabled
                     break
-    if disable_registry:
-        print("\nI see you've disabled some packs in the current scenery_packs.ini")
-        while True:    
-            choice_disable = input("Would you like to carry over the DISABLED tags to the new ini? (yes/no or y/n): ").lower()
-            if choice_disable in ["y","yes"]:
-                print("Ok, I will carry over whatever is possible to the new ini.")
-                break
-            elif choice_disable in ["n","no"]:
-                print("Ok, I will not carry over any of the old DISABLED tags.")
-                disable_registry = {}
-                break
-            else:
-                print("  Sorry, I didn't understand.")
+# Read unsorted ini to remove packs disabled for being unclassified
+if nay_path.is_file():
+    with open(nay_path, "r", encoding = "utf-8") as nay_file:
+        for line in nay_file.readlines():
+            for disabled in [FILE_DISAB_LINE_REL, FILE_DISAB_LINE_ABS]:
+                if line.startswith(disabled):
+                    try:
+                        del disable_registry[line.split(disabled, maxsplit=1)[1].strip("\n")[:-1]]
+                        break
+                    except KeyError:
+                        pass
+# Ask if user wants to carry these disabled packs over
+if disable_registry:
+    print("\nI see you've disabled some packs in the current scenery_packs.ini")
+    while True:    
+        choice_disable = input("Would you like to carry it over to the new ini? (yes/no or y/n): ").lower()
+        if choice_disable in ["y","yes"]:
+            print("Ok, I will carry as much as possible over.")
+            break
+        elif choice_disable in ["n","no"]:
+            print("Ok, I will not carry any of them over.")
+            disable_registry = {}
+            break
+        else:
+            print("  Sorry, I didn't understand.")
 
 
 # Initial time record
@@ -434,19 +454,15 @@ def mesh_dsf_read(end_directory:pathlib.Path, tag:str, dirname:str):
 
 
 # DEF: Check if the pack is an airport
-def process_type_apt(dirpath:pathlib.Path, dirname:str, file_line:str):
+def process_type_apt(dirpath:pathlib.Path, dirname:str, file_line:str, disable:bool):
     # Basic checks before we move further
     apt_path = dir_contains(dirpath, None, "apt.dat")
     if not apt_path:
         if DEBUG >= 2:
             print("  [I] process_type_apt: 'apt.dat' file not found")
         return
-    if apt_path and dirname == "Global Airports":
-        if DEBUG >= 2:
-            print("  [I] process_type_apt: saw 'global airports' as directory name")
-        return "Global"
+    # Attempt several codecs starting with utf-8 in case of obscure apt.dat files
     apt_lins = None
-    # Attempt several codecs starting with utf-8 for obscure apt.dat files
     for codec in ("utf-8", "charmap", "cp1252", "cp850"):
         try:
             if DEBUG >= 2:
@@ -459,28 +475,46 @@ def process_type_apt(dirpath:pathlib.Path, dirname:str, file_line:str):
     else:
         if DEBUG >= 2:
             print(f"  [W] process_type_apt: all codecs errored out")
+    # Loop through lines
     apt_type = None
-    # Check if airport or heliport or seaport, also check if default or prefab
     for line in apt_lins:
+        # Codes for airport, heliport, seaport
         if line.startswith("1 ") or line.startswith("16 ") or line.startswith("17 "):
-            if str_contains(dirname, ["prefab"], casesensitive = False):
-                apt_type = "Prefab"
-                if DEBUG >= 2:
-                    print("  [I] process_type_apt: saw 'prefab' in directory name")
+            # Check if prefab, default, or global
+            apt_prefab = process_quirk_prefab(dirpath, dirname)
+            if apt_prefab:
+                apt_type = apt_prefab
                 break
             elif str_contains(dirname, ["Demo Area", "X-Plane Airports", "X-Plane Landmarks", "Aerosoft"]):
                 apt_type = "Default"
                 if DEBUG >= 2:
                     print("  [I] process_type_apt: found to be default airport")
                 break
+            if apt_path and dirname == "Global Airports":
+                apt_type = "Global"
+                if DEBUG >= 2:
+                    print("  [I] process_type_apt: found to be global airport")
+                break
+            # Must be custom
             else:
                 apt_type = "Custom"
-                splitline = line.split(maxsplit=5)
-                airport_entry = (splitline[5].strip("\n"), dirname, file_line)
-                try:
-                    airport_registry[splitline[4]].append(airport_entry)
-                except KeyError:
-                    airport_registry[splitline[4]] = [airport_entry]
+                # If pack is not to be disabled, note ICAO code from this line
+                if not disable:
+                    splitline = line.split(maxsplit=5)
+                    icao_code = splitline[4]
+                    # Try updating icao registry
+                    try:
+                        icao_registry[icao_code] += 1
+                    except KeyError:
+                        icao_registry[icao_code] = 1
+                    # Try updating airport registry
+                    try:
+                        reg_index = airport_registry["path"].index(dirpath)
+                        airport_registry["icaos"][reg_index].append(icao_code)
+                    except ValueError:
+                        airport_registry["path"].append(dirpath)
+                        airport_registry["line"].append(file_line)
+                        airport_registry["icaos"].append([icao_code])
     return apt_type
 
 
@@ -499,21 +533,17 @@ def process_type_mesh(dirpath:pathlib.Path, dirname:str):
             print(f"  [W] process_type_mesh: caught '{str(overlay)}' from mesh_dsf_read")
         dsffail_registry.append([dirpath, overlay])
         return
-    autoortho = process_misc_ao(dirpath, dirname)
+    mesh_ao = process_quirk_ao(dirpath, dirname)
     if overlay:
-        if autoortho in ["AO Overlay"]:
-            if DEBUG >= 2:
-                print(f"  [I] process_type_mesh: found to be {autoortho.lower()}")
-            return autoortho
+        if mesh_ao in ["AO Overlay"]:
+            return mesh_ao
         elif str_contains(dirname, ["X-Plane Landmarks"]):
             return "Default Overlay"
         else:
             return "Custom Overlay"
     else:
-        if autoortho in ["AO Region", "AO Root"]:
-            if DEBUG >= 2:
-                print(f"  [I] process_type_mesh: found to be {autoortho.lower()}")
-            return autoortho
+        if mesh_ao in ["AO Region", "AO Root"]:
+            return mesh_ao
         elif dir_contains(dirpath, ["textures", "terrain"]):
             return "Ortho Mesh"
         else:
@@ -522,54 +552,88 @@ def process_type_mesh(dirpath:pathlib.Path, dirname:str):
 
 # DEF: Check misc types
 def process_type_other(dirpath:pathlib.Path, dirname:str):
+    other_result = None
     if dir_contains(dirpath, ["library.txt"], "generic"):
-        return "Library"
-    elif DEBUG >= 2:
-            print("  [I] process_type_other: 'library.txt' file not found")
+        other_result = "Library"
+        other_sam = process_quirk_sam(dirpath, dirname)
+        if other_sam in ["SAM Lib"]:
+            other_result = other_sam
     if dir_contains(dirpath, ["plugins"]):
-        return "Plugin"
+        other_result = "Plugin"
+    if DEBUG >= 2 and other_result:
+        print(f"  [I] process_type_other: found to be {other_result}")
     elif DEBUG >= 2:
-            print("  [I] process_type_other: 'plugins' folder not found")
+        print(f"  [I] process_type_other: neither library.txt nor plugins folder found")
+    return other_result
+
+
+# DEF: Check if the pack is a prefab airport
+def process_quirk_prefab(dirpath:pathlib.Path, dirname:str):
+    prefab_result = None
+    if str_contains(dirname, ["prefab"], casesensitive = False):
+        prefab_result = "Prefab Apt"
+    if DEBUG >= 2 and prefab_result:
+        print(f"    [I] process_quirk_prefab: found to be {prefab_result}")
+    return prefab_result
 
 
 # DEF: Check if the pack is from autoortho
-def process_misc_ao(dirpath:pathlib.Path, dirname:str):
+def process_quirk_ao(dirpath:pathlib.Path, dirname:str):
     ao_regions = ["na", "sa", "eur", "afr", "asi", "aus_pac"]
+    ao_result = None
     if str_contains(dirname, ["yAutoOrtho_Overlays"]):
-        return "AO Overlay"
+        ao_result = "AO Overlay"
     elif str_contains(dirname, [f"z_ao_{region}" for region in ao_regions]):
-        return "AO Region"
+        ao_result = "AO Region"
     elif str_contains(dirname, ["z_autoortho"]):
-        return "AO Root"
+        ao_result = "AO Root"
+    if DEBUG >= 2 and ao_result:
+        print(f"    [I] process_quirk_ao: found to be {ao_result}")
+    return ao_result
+
+
+# DEF: Check if the pack is a SAM library
+def process_quirk_sam(dirpath:pathlib.Path, dirname:str):
+    sam_result = None
+    if str_contains(dirname, ["SAM"]):
+        sam_result = "SAM Lib"
+    if DEBUG >= 2 and sam_result:
+        print(f"    [I] process_quirk_sam: found to be {sam_result}")
+    return sam_result
 
 
 # DEF: Classify the pack
 def process_main(path, shortcut = False):
-    # Define values passed to functions
     abs_path = SCENERY_PATH / path
     name = str(path)
+    classified = False
+    # Define path formatted for ini
     if shortcut:
         ini_path = str(abs_path)
     else:
         ini_path = str(path)
-    classified = False
-    if ini_path in disable_registry:
-        return_line = f"{disable_registry[ini_path]}{ini_path}/\n"
+    # Define line formatted for ini
+    disable = ini_path in disable_registry
+    if disable:
         del disable_registry[ini_path]
-        line = return_line
-    if shortcut:
-        line = f"{FILE_LINE_ABS}{ini_path}/\n"
-    else:
-        line = f"{FILE_LINE_REL}{ini_path}/\n"
+        if shortcut:
+            line = f"{FILE_DISAB_LINE_ABS}{ini_path}/\n"
+        else:
+            line = f"{FILE_DISAB_LINE_REL}{ini_path}/\n"
+    else:    
+        if shortcut:
+            line = f"{FILE_LINE_ABS}{ini_path}/\n"
+        else:
+            line = f"{FILE_LINE_REL}{ini_path}/\n"
     # First see if it's an airport
     if not classified:
-        pack_type = process_type_apt(abs_path, name, line)
+        pack_type = process_type_apt(abs_path, name, line, disable)
         classified = True
         if pack_type in ["Global", "Default", "Custom"]:
             airports[pack_type].append(line)
             if DEBUG >= 2:
                 print(f"  [I] process_main: classified as '{pack_type.lower()} Airport'")
-        elif pack_type in ["Prefab"]:
+        elif pack_type in ["Prefab Apt"]:
             quirks[pack_type].append(line)
             if DEBUG >= 2:
                 print(f"  [I] process_main: classified as quirk '{pack_type.lower()}'")
@@ -579,7 +643,7 @@ def process_main(path, shortcut = False):
     if not classified:
         pack_type = process_type_mesh(abs_path, name)
         if not pack_type: 
-            pack_type = process_misc_ao(abs_path, name)
+            pack_type = process_quirk_ao(abs_path, name)
         classified = True
         if pack_type in ["Default Overlay", "Custom Overlay"]:
             overlays[pack_type[:-8]].append(line)
@@ -603,6 +667,10 @@ def process_main(path, shortcut = False):
             misc[pack_type].append(line)
             if DEBUG >= 2:
                 print(f"  [I] process_main: classified as '{pack_type.lower()}'")
+        elif pack_type in ["SAM Lib"]:
+            quirks[pack_type].append(line)
+            if DEBUG >= 2:
+                print(f"  [I] process_main: classified as quirk '{pack_type.lower()}'")
         else:
             classified = False
     # Give up. Add this to the list of packs we couldn't sort
@@ -764,103 +832,104 @@ if unsorted_registry:
     print(f"Waited {time.time() - measure_time.pop()} seconds for your input")
 
 
-# Check custom airport clashes using airport_registry and ask the user if they want to resolve
-print("\nI will now check for Custom Airport overlaps...")
+# Time and variable declarations for printing
+print("\nI will now check for Custom Airport overlaps...\n")
 measure_time.append(time.time())
-conflicts = 0
-# Check how many conflicting airports we have
-for icao in airport_registry:
-    if len(airport_registry[icao]) > 1: 
-        conflicts+=1
-# Self-explanatory
-if conflicts:
+airport_list = {}
+list_num = 0
+
+# Check how many conflicting ICAOs we have and store them in icao_conflicts
+for icao in icao_registry:
+    if icao_registry[icao] > 1: 
+        icao_conflicts.append(icao)
+
+# Display conflicting packs in a list
+for reg_index in range(len(airport_registry["path"])):
+    airport_path = airport_registry["path"][reg_index]
+    airport_line = airport_registry["line"][reg_index]
+    airport_icaos = airport_registry["icaos"][reg_index]
+    # Check if this airport's ICAOs are among the conflicted ones. If not, skip it
+    if (set(airport_icaos) & set(icao_conflicts)):
+        pass
+    else:
+        continue
+    # Print path and ICAOs
+    airport_icao_string = ""
+    for icao in (set(airport_icaos) & set(icao_conflicts)):
+        airport_icao_string += f"{icao} "
+    print(f"    {list_num}: '{airport_path}': {airport_icao_string[:-1]}")
+    # Log this with the number in list
+    airport_list[list_num] = airport_line
+    # Incremenent i for the next pack
+    list_num += 1
+
+# Check if user wants to sort conflicts
+if icao_conflicts:
+    # TODO: Import preferences
     while True:
-        resolve_conflicts = input(f"Found {conflicts} overlapping Custom Airports. Shall we figure out their correct order now? (yes/no or y/n): ").lower()
+        resolve_conflicts = input(f"\nThese airports serve conflicting ICAOs. Would you like to sort them now? (yes/no or y/n): ").lower()
         if resolve_conflicts in ["y","yes"]:
-            print("Ok, I will write them in the correct priority order with your input.")
             resolve_conflicts = True
             break
         elif resolve_conflicts in ["n","no"]:
-            print("Ok, I will only display them.")
+            print("Alright, I'll skip this part.")
             resolve_conflicts = False
             break
         else:
             print("  Sorry, I didn't understand.")
-    print(f"Waited {time.time() - measure_time.pop()} seconds for your input")
-else:
-    measure_time.pop()
-    resolve_conflicts = None
-
-
-# Display (and if opted for, resolve) all custom airport clashes
-measure_time.append(time.time())
-for icao in airport_registry:
-    # If this icao had only one pack, skip it
-    if len(airport_registry[icao]) == 1: 
-        continue
-    # Display the conflicting packs in a list
-    print(f"\nI found {len(airport_registry[icao])} airports for {icao}.")
-    print("I'll list them out with a number, the airport name as per the pack, and the pack's folder's name.")
-    airport_multiple = {}
-    i = 0
-    for airport in airport_registry[icao]:
-        airport_multiple [i] = airport[2]
-        print(f"    {i}: '{airport[0]}' in '{airport[1]}'")
-        i+=1
     if not resolve_conflicts:
-        continue
+        print(f"Waited {time.time() - measure_time.pop()} seconds for your input")
+    else:
+        measure_time.pop()
+else:
+    print("No overlaps found.")
+    resolve_conflicts = None
+    measure_time.pop()
+
+# Time declarations for sorting
+measure_time.append(time.time())
+
+# Sorting algorithm
+if resolve_conflicts:
     tmp_valid_flag = True
-    # Get user input.
     while True:
+        # Get input if the user chose to resolve
         newline = "\n"
-        order = input(f"{'' if tmp_valid_flag else newline}Enter the numbers in order of priority from higher to lower, and separated by comma(s): ")
-        # Create a copy of Custom Airports list to work on
-        tmp_customairports = copy.deepcopy(airports["Custom"])
+        order = input(f"{'' if tmp_valid_flag else newline}Enter the numbers in order of priority from higher to lower, separated by commas: ")
         tmp_valid_flag = True
         # There is no concievable case in which this throws an error, but one can never be sure
         try:
             order = order.strip(" ").split(",")
+            order[:] = [item for item in order if item != '']
         except:
-            print("  I couldn't read this input!")
+            print("    I couldn't read this input!")
             tmp_valid_flag = False
-        if not tmp_valid_flag:
-            print("  Do read the instructions if you're unsure about how to input your preferences.")
-            continue
-        # Check the length of the input given
-        input_difference = len(order) - len(airport_multiple)
-        if input_difference > 0:
-            print(f"  I got {input_difference} more {'entry' if input_difference == 1 else 'entries'} than I was expecting!")
+        # Check if all the packs shown are present in this input
+        if (set(order) != set([f"{i}" for i in range(list_num)])) and tmp_valid_flag:
+            print("    Hmm, that wasn't what I was expecting...")
             tmp_valid_flag = False
-        elif input_difference < 0:
-            print(f"  I got {-input_difference} {'less entry' if -input_difference == 1 else 'fewer entries'} than I was expecting!")
-            tmp_valid_flag = False
+        # If this was an invalid input, show the user what a possible input would look like
         if not tmp_valid_flag:
-            print("  Do read the instructions if you're unsure about how to input your preferences.")
-            continue
-        # Manipulate the customairports copy according to the user input. If it fails somehow, reset the copy and start over
-        for sl in order:
-            try:
-                tmp_customairports.append(tmp_customairports.pop(tmp_customairports.index(airport_multiple[int(sl)])))
-            except Exception as e:
-                if isinstance(e, IndexError):
-                    print("  Invalid index given!")
-                elif isinstance(e, TypeError):
-                    print("  Saw non-numeric characters between commas!")
-                else:
-                    print("  That didn't work.")
-                tmp_valid_flag = False
-                break
-        if not tmp_valid_flag:
-            print(f"  Do read the instructions if you're unsure about how to input your preferences. Resetting preferences for {icao}.")
-            continue
-        # If we've made it this far, then everything has gone well. We can now write the copy back into the main list
-        print(f"  Preferences updated for {icao}!")
-        airports["Custom"] = copy.deepcopy(tmp_customairports)
-        break
+            print("    I recommend you read the instructions if you're not sure what to do.")
+            print("    For now though, I will show a basic example for your case below.")
+            example_str = ""
+            for i in range(list_num):
+                example_str += f"{i},"
+            print(f"    {example_str[:-1]}")
+            print("    You can copy-paste this as-is, or move the numbers as you wish.")
+        # If this input's valid, move on
+        else:
+            break
+    # Manipulate custom airports list
+    tmp_customairports = copy.deepcopy(airports["Custom"])
+    for i in order:
+        tmp_customairports.append(tmp_customairports.pop(tmp_customairports.index(airport_list[int(i)])))
+    airports["Custom"] = copy.deepcopy(tmp_customairports)
+
 # Display time after this ordeal if chosen to resolve, else advise to go through the ini manually, else happily say we saw nothing
 if resolve_conflicts:
-    print(f"Took me {time.time() - measure_time.pop()} seconds to resolve conflicts with your help.\n")
-elif conflicts:
+    print(f"Done! Took me {time.time() - measure_time.pop()} seconds to with your help.\n")
+elif icao_conflicts:
     measure_time.pop()
     print("You may wish to manually go through the ini file for corrections.\n")
 else:
@@ -869,18 +938,24 @@ else:
 
 
 scenery_ini_path_dep = pathlib.Path(SCENERY_PATH / "scenery_packs.ini")
+scenery_ini_path_nay = pathlib.Path(SCENERY_PATH / "scenery_packs_unsorted.ini")
 scenery_ini_path_bak = pathlib.Path(f"{scenery_ini_path_dep}.bak")
 
-
 # Remove the old backup file, if present
-if scenery_ini_path_bak.exists():
-    print("I will now delete the old scenery_packs.ini.bak")
-    scenery_ini_path_bak.unlink()
+try:
+    if scenery_ini_path_bak.exists():
+        print("I will now delete the old scenery_packs.ini.bak")
+        scenery_ini_path_bak.unlink()
+except Exception as e:
+    print(f"Failed to delete! Maybe check the file permissions? Error: '{e}'")
 
 # Back up the current scenery_packs.ini file
-if scenery_ini_path_dep.exists():
-    print("I will now back up the current scenery_packs.ini")
-    scenery_ini_path_dep.rename(scenery_ini_path_bak)
+try:
+    if scenery_ini_path_dep.exists():
+        print("I will now back up the current scenery_packs.ini")
+        scenery_ini_path_dep.rename(scenery_ini_path_bak)
+except Exception as e:
+    print(f"Failed to rename .ini to .ini.bak! Maybe check the file permissions? Error: '{e}'")
 
 # Write out the new scenery_packs.ini file
 print("I will now write the new scenery_packs.ini")
@@ -891,10 +966,11 @@ packs = {
     "unsorted": unsorted_registry,
     "airports: custom": airports["Custom"],
     "airports: default": airports["Default"],
-    "quirks: prefab": quirks["Prefab"],
+    "quirks: prefab apt": quirks["Prefab Apt"],
     "airports: global": airports["Global"],
     "misc: plugin": misc["Plugin"],
     "misc: library": misc["Library"],
+    "quirks: sam lib": quirks["SAM Lib"],
     "overlays: custom": overlays["Custom"],
     "overlays: default": overlays["Default"],
     "quirks: ao overlay": quirks["AO Overlay"],
@@ -903,7 +979,12 @@ packs = {
     "quirks: ao root": quirks["AO Root"],
     "meshes: terrain": meshes["Terrain"]
     }
-# Write this whole thing to the ini
+# Write unsorted packs to scenery_packs_unsorted.ini
+with open(scenery_ini_path_nay, "w+", encoding = "utf-8") as f:
+    f.write(FILE_BEGIN)
+    if packs["unsorted"]:
+        f.writelines(packs["unsorted"])
+# Write everything to scenery_packs.ini
 with open(scenery_ini_path_dep, "w+", encoding = "utf-8") as f:
     f.write(FILE_BEGIN)
     for pack_type in packs:
