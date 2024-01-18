@@ -1,4 +1,4 @@
-# Scenery Pack Organiser - XP10/11/12 v2.1r6
+# Scenery Pack Organiser - XP10/11/12 v2.2b1
 
 Are you tired of sifting through all the packs in the Custom Scenery folder and reordering them manually?\
 Do you hate having to start and quit X-Plane just to add new scenery packs to the file so you can organise it?\
@@ -30,7 +30,7 @@ Required non-standard Python3 libraries: `py7zr`, and if you're on Windows, `pyw
 - On Windows, you can run it simply by double-clicking. If this doesn't work, try the next method
 
 - On any platform, first open Command Prompt or Terminal and change the active directory to where the program is located\
-Then do `python3 organiser_v2.1r6.py` or `python organiser_v2.1r6.py`\
+Then do `python3 organiser_v2.2b1.py` or `python organiser_v2.2b1.py`\
 To decide which one to use, refer the installation instructions
 
 - *Extra: If the program crashes, try running with `--debug-1` or `--debug-2` added at the end of the command shown above to see where it crashes*\
@@ -50,9 +50,7 @@ If this doesn't work, or if you want to use a different location, simply paste t
 
 4. If the program was unable to sort some scenery packs, it will display them and offer a choice to write them into the ini. If you choose not to, they will be written as disabled packs
 
-5. If the program detects multiple airport packs for an ICAO code, it will give you a choice to prioritise them within the program
-    - It will first display the ICAO code, and then list the packs with a serial number, the airport name as per the pack, and the pack's folder's name
-    - If you opted to resolve, you will need to define the priorities. To do so, go through the list and enter the serial numbers (from the list) in your desired order, separated by commas. The highest priority should go first, and the lowest last
+5. `(WIP Documentation for the new conflict resolution system)`
 
 6. If an existing `scenery_packs.ini` is found, it will be renamed to `scenery_packs.ini.bak`. Old backup files will be removed upon completion of the script
 To roll back, simply drop the `.bak` extension
