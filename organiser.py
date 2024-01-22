@@ -928,7 +928,7 @@ if resolve_conflicts:
 
 # Display time after this ordeal if chosen to resolve, else advise to go through the ini manually, else happily say we saw nothing
 if resolve_conflicts:
-    print(f"Done! Took me {time.time() - measure_time.pop()} seconds to with your help.\n")
+    print(f"Done! Took me {time.time() - measure_time.pop()} seconds with your help.\n")
 elif icao_conflicts:
     measure_time.pop()
     print("You may wish to manually go through the ini file for corrections.\n")
