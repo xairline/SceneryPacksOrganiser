@@ -60,7 +60,7 @@ To roll back, simply drop the `.bak` extension
 
 
 ## Features
-- Sorts scenery packs according to the hierarchy specified below:\
+- Sorts scenery packs according to the hierarchy specified below:
     - Custom Airports
     - Default Airports
     - *[Prefab Airports](https://forums.x-plane.org/index.php?/files/file/27582-prefab-scenery-for-25000-airports/)*
