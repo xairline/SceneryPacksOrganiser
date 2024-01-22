@@ -61,18 +61,17 @@ To roll back, simply drop the `.bak` extension
 
 ## Features
 - Sorts scenery packs according to the hierarchy specified below:\
-*Note: Italics means a pack that requires special attention*
     - Custom Airports
     - Default Airports
-    - *Prefab Airports*
+    - *[Prefab Airports](https://forums.x-plane.org/index.php?/files/file/27582-prefab-scenery-for-25000-airports/)*
     - Global Airports
     - Scenery Plugins
     - Scenery Libraries
     - Custom Overlays
     - Default Overlays
-    - *AutoOrtho Overlays*
+    - *[AutoOrtho](https://forums.x-plane.org/index.php?/forums/topic/259020-autoortho-streaming-ortho-imagery-for-x-plane-12-and-11/) Overlays*
     - Orthophotos
-    - *AutoOrtho Ortho Regions*
+    - *[AutoOrtho](https://forums.x-plane.org/index.php?/forums/topic/259020-autoortho-streaming-ortho-imagery-for-x-plane-12-and-11/) Regions*
     - Terrain Meshes
 - Supports Windows shortcuts (.LNK files, eg. for SAM Library)
 - Supports [Prefab Airports](https://forums.x-plane.org/index.php?/files/file/27582-prefab-scenery-for-25000-airports/) and [AutoOrtho](https://forums.x-plane.org/index.php?/forums/topic/259020-autoortho-streaming-ortho-imagery-for-x-plane-12-and-11/)
