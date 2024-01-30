@@ -773,7 +773,7 @@ if not airports["Global"]:
     airports["Global"].append(XP12_GLOBAL_AIRPORTS)
 
 # Display time taken in this operation
-print(f"Took me {time.time() - measure_time.pop()} seconds to classify.")
+print(f"Done! Took me {time.time() - measure_time.pop()} seconds to classify.")
 
 
 # Display all packs that errored when reading DSFs (if debugging enabled)
@@ -833,7 +833,7 @@ if unsorted_registry:
 
 
 # Time and variable declarations for printing
-print("\nI will now check for Custom Airport overlaps...\n")
+print("\nI will now check for Custom Airport overlaps...")
 measure_time.append(time.time())
 airport_list = {}
 list_num = 0
@@ -848,14 +848,16 @@ for reg_index in range(len(airport_registry["path"])):
     airport_path = airport_registry["path"][reg_index]
     airport_line = airport_registry["line"][reg_index]
     airport_icaos = airport_registry["icaos"][reg_index]
-    # Check if this airport's ICAOs are among the conflicted ones. If not, skip it
-    if (set(airport_icaos) & set(icao_conflicts)):
+    # Check if this airport's ICAOs are among the conflicting ones. If not, skip it
+    airport_icaos_conflicting = list(set(airport_icaos) & set(icao_conflicts))
+    airport_icaos_conflicting.sort()
+    if airport_icaos_conflicting:
         pass
     else:
         continue
     # Print path and ICAOs
     airport_icao_string = ""
-    for icao in (set(airport_icaos) & set(icao_conflicts)):
+    for icao in airport_icaos_conflicting:
         airport_icao_string += f"{icao} "
     print(f"    {list_num}: '{airport_path}': {airport_icao_string[:-1]}")
     # Log this with the number in list
@@ -867,7 +869,7 @@ for reg_index in range(len(airport_registry["path"])):
 if icao_conflicts:
     # TODO: Import preferences
     while True:
-        resolve_conflicts = input(f"\nThese airports serve conflicting ICAOs. Would you like to sort them now? (yes/no or y/n): ").lower()
+        resolve_conflicts = input(f"\nI've listed out all airport packs with their overlapping ICAOs. Would you like to sort them now? (yes/no or y/n): ").lower()
         if resolve_conflicts in ["y","yes"]:
             resolve_conflicts = True
             break
@@ -900,12 +902,12 @@ if resolve_conflicts:
         # There is no concievable case in which this throws an error, but one can never be sure
         try:
             order = order.strip(" ").split(",")
-            order[:] = [item for item in order if item != '']
+            order[:] = [int(item) for item in order if item != '']
         except:
             print("    I couldn't read this input!")
             tmp_valid_flag = False
         # Check if all the packs shown are present in this input
-        if (set(order) != set([f"{i}" for i in range(list_num)])) and tmp_valid_flag:
+        if (set(order) != set(range(list_num))) and tmp_valid_flag:
             print("    Hmm, that wasn't what I was expecting...")
             tmp_valid_flag = False
         # If this was an invalid input, show the user what a possible input would look like
@@ -922,19 +924,19 @@ if resolve_conflicts:
             break
     # Manipulate custom airports list
     tmp_customairports = copy.deepcopy(airports["Custom"])
+    tmp_customoverlaps = list()
     for i in order:
-        tmp_customairports.append(tmp_customairports.pop(tmp_customairports.index(airport_list[int(i)])))
-    airports["Custom"] = copy.deepcopy(tmp_customairports)
+        tmp_customoverlaps.append(tmp_customairports.pop(tmp_customairports.index(airport_list[i])))
+    tmp_customoverlaps.extend(tmp_customairports)
+    airports["Custom"] = copy.deepcopy(tmp_customoverlaps)
 
-# Display time after this ordeal if chosen to resolve, else advise to go through the ini manually, else happily say we saw nothing
-if resolve_conflicts:
+# Display time after this ordeal if chosen to resolve, else advise to go through the ini manually, else do nothing
     print(f"Done! Took me {time.time() - measure_time.pop()} seconds with your help.\n")
 elif icao_conflicts:
     measure_time.pop()
     print("You may wish to manually go through the ini file for corrections.\n")
 else:
     measure_time.pop()
-    print("I didn't detect any conflicts.\n")
 
 
 scenery_ini_path_dep = pathlib.Path(SCENERY_PATH / "scenery_packs.ini")
