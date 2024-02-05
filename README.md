@@ -1,4 +1,4 @@
-# Scenery Pack Organiser - XP10/11/12 v2.2b1
+# Scenery Pack Organiser - XP10/11/12 v2.2b2
 
 Are you tired of sifting through all the packs in the Custom Scenery folder and reordering them manually?\
 Do you hate having to start and quit X-Plane just to add new scenery packs to the file so you can organise it?\
@@ -23,14 +23,14 @@ It will read and sort all scenery packs, carry over DISABLED tags, check for air
 There is often confusion between `python` and `python3`. Doing the above will help you decide how to invoke python when running the script. If both commands give you an output, use the one that displays the highest version number.
 <br>
 
-Required non-standard Python3 libraries: `py7zr`, and if you're on Windows, `pywin32` too. You can install them yourself using `pip install <library name>`, or you can let the program install them for you :wink:.
+Required non-standard Python3 libraries: `py7zr`, `pyyaml`, and if you're on Windows, `pywin32`. You can install them yourself using `pip install <library name>`, or you can let the program install them for you :wink:.
 
 ## Usage
 ### How to run
 - On Windows, you can run it simply by double-clicking. If this doesn't work, try the next method
 
 - On any platform, first open Command Prompt or Terminal and change the active directory to where the program is located\
-Then do `python3 organiser_v2.2b1.py` or `python organiser_v2.2b1.py`\
+Then do `python3 organiser_v2.2b2.py` or `python organiser_v2.2b2.py`\
 To decide which one to use, refer the installation instructions
 
 - *NOTE: If the program crashes, try running with `--debug-1` or `--debug-2` added at the end of the command shown above to see where it crashes*\
@@ -97,7 +97,8 @@ A huge thank-you to these awesome people:
 - [@cyl8](https://forums.x-plane.org/index.php?/profile/327870-cyl8/) for his inputs on UI and general testing
 
 This project is licensed under the GNU GPL v2.
-- 2.2b1 - Complete rewrite of airport overlap system. Minor bugfixes. 
+- 2.2b2 - Now save results of DSF parse so future runs are faster
+- 2.2b1 - Complete rewrite of airport overlap system. Minor bugfixes
 - 2.1r6 - Hotfix for Windows .lnk shortcut parsing
 - 2.1r5 - Removed `pkg_resources` following deprecation in Python 3.12. Added debugging CLI options
 - 2.1r4 - Fixed bug in selection of DSF to be read. Restored option to install missing Python3 libraries. Performance improvement: removal of need to "scan" Custom Scenery folder. UI improvement: refer to Custom Airport conflicts as "overlaps"; made prompt message clearer
@@ -127,6 +128,6 @@ This project is licensed under the GNU GPL v2.
 ## What's planned...
 Naturally, fixing the above :grin:. I also want to really solidify AutoOrtho and SAM support - people have been telling me there's some extra witchcraft it does that messes up this one's output.\
 <br>
-There's also saving preferences of custom airport overlaps, so you can simply reuse what you did last time. I'd also quite like to speed up the DSF parsing - with my setup more than half the execution time is just extracting 7z archives. I'm also considering potential options to let YOU decide how you want your pack sorted. Perhaps little text files you can copy-paste to your scenery pack would be a good option...\
+There's also saving preferences of custom airport overlaps, so you can simply reuse what you did last time. I'm also considering potential options to let you decide how you want your packs sorted. Perhaps little text files you can copy-paste to your scenery pack would be a good option...\
 <br>
-However I've been bogged down by school exams for a while now... so I definitely will get get these done, but probably not very soon :pensive:. In the meantime, if you find any bugs or have a feature in mind please do leave a comment or shoot me a message and I'll do my best to get to it.
+However I've been bogged down by exams for a while now... so I definitely will get get these done, but probably not very soon :pensive:. In the meantime, if you find any bugs or have a feature in mind please do leave a comment or shoot me a message and I'll do my best to get to it.
