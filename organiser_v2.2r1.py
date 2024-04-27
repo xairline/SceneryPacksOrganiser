@@ -88,7 +88,7 @@ if DEBUG:
     print(f"Debug level set to {DEBUG}. The program will be accordingly verbose during execution.")
     print("It will also display DSF errors and list packs as sorted in the end.")
     print()
-print("Scenery Pack Organiser version 2.2b2\n")
+print("Scenery Pack Organiser version 2.2r1\n")
 
 # Define where to look for direct X-Plane install traces
 search_path = {}
