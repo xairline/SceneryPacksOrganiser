@@ -1,4 +1,4 @@
-# Scenery Pack Organiser - XP10/11/12 v2.2b2
+# Scenery Pack Organiser - XP10/11/12 v2.2r1
 
 Are you tired of sifting through all the packs in the Custom Scenery folder and reordering them manually?\
 Do you hate having to start and quit X-Plane just to add new scenery packs to the file so you can organise it?\
@@ -30,7 +30,7 @@ Required non-standard Python3 libraries: `py7zr`, `pyyaml`, and if you're on Win
 - On Windows, you can run it simply by double-clicking. If this doesn't work, try the next method
 
 - On any platform, first open Command Prompt or Terminal and change the active directory to where the program is located\
-Then do `python3 organiser_v2.2b2.py` or `python organiser_v2.2b2.py`\
+Then do `python3 organiser_v2.2r1.py` or `python organiser_v2.2r1.py`\
 To decide which one to use, refer the installation instructions
 
 - *NOTE: If the program crashes, try running with `--debug-1` or `--debug-2` added at the end of the command shown above to see where it crashes*\
@@ -56,10 +56,10 @@ If this doesn't work, or if you want to use a different location, simply paste t
     - The packs will be written in the order you give it - first one highest, last one lowest
 
 6. If an existing `scenery_packs.ini` is found, it will be renamed to `scenery_packs.ini.bak`. Old backup files will be removed upon completion of the script
-To roll back, simply drop the `.bak` extension
+If you want to roll back to the old ini, delete the existing one and then remove the `.bak` extension
 
 7. Upon exiting, if the program can find X-Plane, it will offer to launch X-Plane\
-*NOTE: You must not close the console window, otherwise X-Plane will also abruptly close*
+*NOTE: Do not close the console window, otherwise X-Plane might also abruptly close*
 
 
 ## Features
@@ -80,23 +80,24 @@ To roll back, simply drop the `.bak` extension
 - Supports [Prefab Airports](https://forums.x-plane.org/index.php?/files/file/27582-prefab-scenery-for-25000-airports/) and [AutoOrtho](https://forums.x-plane.org/index.php?/forums/topic/259020-autoortho-streaming-ortho-imagery-for-x-plane-12-and-11/)
 - Attempts to locate X-Plane installs automatically, letting you choose between the results or manually inputting an X-Plane install path
 - Offers to carry over SCENERY_PACK_DISABLED tags from existing scenery_packs.ini
-- Checks for Custom Airport conflicts and resolves them with user input
+- Checks for Custom Airport overlaps and resolves them with user input
 - Will warn you of folders-in-folder (It's more common than you'd think)
 - Supports XP10/11's and XP12's Global Airports entry simultaneously
 
 
 ## Credits/Changelog
-Any contributions (features or bugfixes) are very welcome :grin:. [Here's the project GitHub](https://github.com/therectifier/SceneryPacksOrganiser/).\
-Feel free to message me on Discord - my username is `therectifier`. I'm also present in the X-Plane Community and Official servers.\
+Any contributions (features or bugfixes) are very welcome :grin:. [Here's the project GitHub](https://github.com/iy4vet/SceneryPacksOrganiser/).\
+Feel free to message me on Discord - my username is `iy4vet`. I'm also present in the X-Plane Community and Official servers.\
 <br>
 A huge thank-you to these awesome people:
-- [@supercoder186](https://forums.x-plane.org/index.php?/profile/567626-supercoder186/) for his original utility and encouragement 
-- [@Brady](https://forums.x-plane.org/index.php?/profile/7654-brady/) for the suggestion to clean up old X-Plane installs
-- [@carlos maida](https://forums.x-plane.org/index.php?/profile/113644-carlos-maida/) for his immense help with testing and AutoOrtho support
-- [@Birdy.dma](https://forums.x-plane.org/index.php?/profile/147165-birdydma/) for the suggestion to launch X-Plane within the program
-- [@cyl8](https://forums.x-plane.org/index.php?/profile/327870-cyl8/) for his inputs on UI and general testing
+- [@supercoder186](https://forums.x-plane.org/index.php?/profile/567626-supercoder186/)
+- [@Brady](https://forums.x-plane.org/index.php?/profile/7654-brady/)
+- [@carlos maida](https://forums.x-plane.org/index.php?/profile/113644-carlos-maida/)
+- [@Birdy.dma](https://forums.x-plane.org/index.php?/profile/147165-birdydma/)
+- [@cyl8](https://forums.x-plane.org/index.php?/profile/327870-cyl8/)
 
 This project is licensed under the GNU GPL v2.
+- 2.2r1 - Add shebang to allow double-clicking on Unix systems
 - 2.2b2 - Now save results of DSF parse so future runs are faster
 - 2.2b1 - Complete rewrite of airport overlap system. Minor bugfixes
 - 2.1r6 - Hotfix for Windows .lnk shortcut parsing
@@ -130,4 +131,4 @@ Naturally, fixing the above :grin:. I also want to really solidify AutoOrtho and
 <br>
 There's also saving preferences of custom airport overlaps, so you can simply reuse what you did last time. I'm also considering potential options to let you decide how you want your packs sorted. Perhaps little text files you can copy-paste to your scenery pack would be a good option...\
 <br>
-However I've been bogged down by exams for a while now... so I definitely will get get these done, but probably not very soon :pensive:. In the meantime, if you find any bugs or have a feature in mind please do leave a comment or shoot me a message and I'll do my best to get to it.
+If there's anything else you'd like to see added, send me a message or create a pull request on GitHub!
