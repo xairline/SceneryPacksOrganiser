@@ -32,7 +32,7 @@ Required non-standard Python3 libraries: `py7zr`, `pyyaml`, and if you're on Win
 - On Linux and macOS, set the executable bit, and double-click. If prompted, choose "Run in Terminal"
 
 - On any platform, first open Command Prompt or Terminal and change the active directory to where the program is located\
-Then do `python3 organiser_v2.2r1.py` or `python organiser_v2.2r1.py`\
+Then do `python3 organiser.py` or `python organiser.py`\
 To decide which one to use, refer the installation instructions
 
 - *NOTE: If the program crashes, try running with `--debug-1` or `--debug-2` added at the end of the command shown above to see where it crashes*\
