@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import copy
 import hashlib
 import locale
@@ -37,7 +39,26 @@ while True:
                 exit()
             else:
                 print("  Sorry, I didn't understand.")
-# win32com
+# pyyaml
+while True:
+    try:
+        import yaml
+        break
+    except ModuleNotFoundError:
+        while True:
+            choice_install = input(f"I could not locate the pyyaml Python library. Would you like me to install it now? (yes/no or y/n): ").lower()
+            if choice_install in ["y", "yes"]:
+                print("Ok, I will install it now. If the program quits or gives an error after this, please restart it.\n")
+                os.system(f"pip install pyyaml")
+                print("\n")
+                break
+            elif choice_install in ["n", "no"]:
+                print("Ok, I will not install it. You will need to install it yourself and run the program again.\n")
+                input("Press enter to close")
+                exit()
+            else:
+                print("  Sorry, I didn't understand.")
+# pywin32
 while True:
     if sys.platform != "win32":
         break
@@ -67,9 +88,9 @@ shutil.register_unpack_format('7zip', ['.7z', '.dsf'], py7zr.unpack_7zarchive)
 # State version
 if DEBUG:
     print(f"Debug level set to {DEBUG}. The program will be accordingly verbose during execution.")
-    print("It will also display DSF Errors and list packs as sorted in the end.")
+    print("It will also display DSF errors and list packs as sorted in the end.")
     print()
-print("Scenery Pack Organiser version 2.1r6\n")
+print("Scenery Pack Organiser version 2.2r1\n")
 
 # Define where to look for direct X-Plane install traces
 search_path = {}
@@ -142,7 +163,7 @@ while True:
                     for end in ["/\n", "/", "\n", ""]:
                         try:
                             del dct_lines[dct_lines.index(str(xplane_path) + end)]
-                        except ValueError:
+                        except KeyError:
                             pass
                 with open(dct_path, "w", encoding = "utf-8") as dct_file:
                     dct_file.writelines(dct_lines)
@@ -156,7 +177,7 @@ while True:
         print("I couldn't see a Custom Scenery folder here! Please recheck your path. ")
 
 
-# Constant and variable declarations
+# constant declarations
 SCENERY_PATH = scenery_path
 XP10_GLOBAL_AIRPORTS = "SCENERY_PACK Custom Scenery/Global Airports/\n"
 XP12_GLOBAL_AIRPORTS = "SCENERY_PACK *GLOBAL_AIRPORTS*\n"
@@ -165,22 +186,31 @@ FILE_LINE_ABS = "SCENERY_PACK "
 FILE_DISAB_LINE_REL = "SCENERY_PACK_DISABLED Custom Scenery/"
 FILE_DISAB_LINE_ABS = "SCENERY_PACK_DISABLED "
 FILE_BEGIN = "I\n1000 Version\nSCENERY\n\n"
+BUF_SIZE = 65536
 
-measure_time = []
-airport_registry = {}
-disable_registry = {}
-dsffail_registry = []
-unparsed_registry = []
-unsorted_registry = []
-quirks = {"Prefab": [], "AO Overlay": [], "AO Region": [], "AO Root": []}
+# global variable declarations
+measure_time = []       # list to keep writing and popping times
+icao_conflicts = []     # list of ICAO codes that have more than one pack serving it
+icao_registry = {}      # dict of ICAO codes and the number of packs serving each
+disable_registry = {}   # dict that holds the folder line and beginning line of disabled packs
+dsferror_registry = []   # list of errored dsfs
+unparsed_registry = []  # list of .lnk shortcuts that couldn't be parsed
+airport_registry = {"path": [], "line": [], "icaos": []}    
+                        # dict that holds the folder path, file line, and a list of ICAOs served
+                        # to use, get the index via folder path and use that within each key-value
+
+# classification variables
+unsorted_registry = []          # list of packs that couldn't be classified
+quirks = {"Prefab Apt": [], "AO Overlay": [], "AO Region": [], "AO Root": []}
 airports = {"Custom": [], "Default": [], "Global": []}
 overlays = {"Custom": [], "Default": []}
 meshes = {"Ortho": [], "Terrain": []}
 misc = {"Plugin": [], "Library": []}
 
 
-# Read old ini and store disabled packs. Ask user if they want to carry them forward
+# Read old ini to get list of disabled packs
 ini_path = SCENERY_PATH / "scenery_packs.ini"
+nay_path = SCENERY_PATH / "scenery_packs_unsorted.ini"
 if ini_path.is_file():
     with open(ini_path, "r", encoding = "utf-8") as ini_file:
         for line in ini_file.readlines():
@@ -188,19 +218,31 @@ if ini_path.is_file():
                 if line.startswith(disabled):
                     disable_registry[line.split(disabled, maxsplit=1)[1].strip("\n")[:-1]] = disabled
                     break
-    if disable_registry:
-        print("\nI see you've disabled some packs in the current scenery_packs.ini")
-        while True:    
-            choice_disable = input("Would you like to carry over the DISABLED tags to the new ini? (yes/no or y/n): ").lower()
-            if choice_disable in ["y","yes"]:
-                print("Ok, I will carry over whatever is possible to the new ini.")
-                break
-            elif choice_disable in ["n","no"]:
-                print("Ok, I will not carry over any of the old DISABLED tags.")
-                disable_registry = {}
-                break
-            else:
-                print("  Sorry, I didn't understand.")
+# Read unsorted ini to remove packs disabled for being unclassified
+if nay_path.is_file():
+    with open(nay_path, "r", encoding = "utf-8") as nay_file:
+        for line in nay_file.readlines():
+            for disabled in [FILE_DISAB_LINE_REL, FILE_DISAB_LINE_ABS]:
+                if line.startswith(disabled):
+                    try:
+                        del disable_registry[line.split(disabled, maxsplit=1)[1].strip("\n")[:-1]]
+                        break
+                    except KeyError:
+                        pass
+# Ask if user wants to carry these disabled packs over
+if disable_registry:
+    print("\nI see you've disabled some packs in the current scenery_packs.ini")
+    while True:    
+        choice_disable = input("Would you like to carry it over to the new ini? (yes/no or y/n): ").lower()
+        if choice_disable in ["y","yes"]:
+            print("Ok, I will carry as much as possible over.")
+            break
+        elif choice_disable in ["n","no"]:
+            print("Ok, I will not carry any of them over.")
+            disable_registry = {}
+            break
+        else:
+            print("  Sorry, I didn't understand.")
 
 
 # Initial time record
@@ -217,7 +259,7 @@ while True:
 
 
 # DEF: Read Windows shorcuts
-# The non-Windows code was taken from https://gist.github.com/Winand/997ed38269e899eb561991a0c663fa49
+# The non-Windows code is from https://gist.github.com/Winand/997ed38269e899eb561991a0c663fa49
 def process_shortcut_read(sht_path:str):
     tgt_path = None
     if sys.platform == "win32":
@@ -299,7 +341,7 @@ def str_contains(searchstr:str, itemslist:list, casesensitive:bool = True):
 
 
 # DEF: Read uncompresssed DSF
-# This is heavily modified code from https://gist.github.com/nitori/6e7be6c9f00411c12aacc1ee964aee88 - thank you very much!
+# This code is adapted from https://gist.github.com/nitori/6e7be6c9f00411c12aacc1ee964aee88 - thank you very much!
 def mesh_dsf_decode(filepath:pathlib.Path, dirname):
     try:
         size = os.stat(filepath).st_size
@@ -310,26 +352,26 @@ def mesh_dsf_decode(filepath:pathlib.Path, dirname):
     footer_start = size - 16  # 16 byte (128bit) for md5 hash
     digest = hashlib.md5()
     try:
-        with open(filepath, "rb") as f:
+        with open(filepath, "rb") as dsf:
             # read 8s = 8 byte string, and "i" = 1 32 bit integer (total: 12 bytes)
-            raw_header = f.read(12)
+            raw_header = dsf.read(12)
             header, version = struct.unpack("<8si", raw_header)
             digest.update(raw_header)
             # Proceed only if the version and header match what we expect, else return a string
             if version == 1 and header == b"XPLNEDSF":
                 dsf_data = []
-                while f.tell() < footer_start:
-                    raw_atom_header = f.read(8)
+                while dsf.tell() < footer_start:
+                    raw_atom_header = dsf.read(8)
                     digest.update(raw_atom_header)
                     # 32bit atom id + 32 bit atom_size.. total: 8 byte
                     atom_id, atom_size = struct.unpack("<ii", raw_atom_header)
                     atom_id = struct.pack(">i", atom_id) # "DAEH" -> "HEAD"
                     # data size is atom_size excluding the just read 8 byte id+size header
-                    atom_data = f.read(atom_size - 8)
+                    atom_data = dsf.read(atom_size - 8)
                     digest.update(atom_data)
                     dsf_data.append((atom_id, atom_size, atom_data))
                 # remaining bit is the checksum, check if it matches
-                checksum = f.read()
+                checksum = dsf.read()
                 if checksum != digest.digest():
                     if DEBUG >= 2:
                         print(f"  [E] mesh_dsf_decode: checksum mismatch")
@@ -342,11 +384,11 @@ def mesh_dsf_decode(filepath:pathlib.Path, dirname):
                     return "ERR: DCDE: NoExtract"
                 else:
                     if DEBUG >= 2:
-                        print(f"  [E] mesh_dsf_decode: got '{header}' header")
+                        print(f"  [E] mesh_dsf_decode: unknown header. got '{header}'")
                     return "ERR: DCDE: !XPLNEDSF"
             elif version != 1:
                 if DEBUG >= 2:
-                    print(f"  [E] mesh_dsf_decode: got dsf version '{version}'")
+                    print(f"  [E] mesh_dsf_decode: unknown dsf version. got '{version}'")
                 return f"ERR: DCDE: v{((8 - len(str(version))) * ' ') + str(version)}"
     except Exception as e:
         if DEBUG >= 2:
@@ -356,7 +398,58 @@ def mesh_dsf_decode(filepath:pathlib.Path, dirname):
 
 # DEF: Select and read DSF. Uncompress if needed and call mesh_dsf_decode(). Return HEAD atom
 def mesh_dsf_read(end_directory:pathlib.Path, tag:str, dirname:str):
-    # TODO: Check for stored results
+    # Attempt to fetch cached data
+    try:
+        with open(end_directory.parent.absolute() / "sporganiser_cache.yaml", "r") as yaml_file:
+            dsf_cache_data = yaml.load(yaml_file, Loader = yaml.FullLoader)
+            if DEBUG >= 2:
+                print(f"  [I] mesh_dsf_read: loaded cached data")
+    except FileNotFoundError:
+        dsf_cache_data = {"version": 220}
+    # Read cached data
+    dsf_cache_data_iter = copy.deepcopy(dsf_cache_data)
+    try:
+        for dsf in dsf_cache_data_iter:
+            # check version
+            if dsf == "version":
+                if not dsf_cache_data[dsf] == 220:
+                    if DEBUG >= 2:
+                        print(f"  [W] mesh_dsf_read: unknown version tag. got '{dsf_cache_data[dsf]}'")
+                    dsf_cache_data = {"version": 220}
+                    break
+                continue
+            # locate dsf cached and check that it exists
+            dsf_path = end_directory / dsf
+            if not dsf_path.exists():
+                if DEBUG >= 2:
+                    print(f"  [W] mesh_dsf_read: cached dsf '{str(dsf_path)}' doesn't exist")
+                del dsf_cache_data[dsf]
+                continue
+            # hash dsf to ensure cached data is still valid
+            sha1 = hashlib.sha1()
+            md5 = hashlib.md5()
+            with open(dsf_path, 'rb') as dsf_file:
+                while True:
+                    data = dsf_file.read(BUF_SIZE)
+                    if not data:
+                        break
+                    sha1.update(data)
+                    md5.update(data)
+            if not (dsf_cache_data[dsf]["md5"] == md5.hexdigest() and dsf_cache_data[dsf]["sha1"] == sha1.hexdigest()):
+                if DEBUG >= 2:
+                    print(f"  [W] mesh_dsf_read: hash of cached dsf '{str(dsf_path)}' doesn't match")
+                del dsf_cache_data[dsf]
+                continue
+            # attempt to get the tag data requested
+            try:
+                tag_data = dsf_cache_data[dsf][tag]
+                return tag_data
+            except KeyError:
+                pass
+    except Exception as e:
+        if DEBUG >= 2:
+            print(f"  [E] mesh_dsf_read: unhandled error '{e}'")
+        dsf_cache_data = {"version": 220}        
     # Get list of potential tile directories to search
     list_dir = dir_list(end_directory, "dirs")
     tile_dir = []
@@ -370,6 +463,8 @@ def mesh_dsf_read(end_directory:pathlib.Path, tag:str, dirname:str):
     # Going one tile at a time, attempt to extract a dsf from the tile
     uncomp_flag = 0
     dsf_data = None
+    final_tile = None
+    final_dsf = None
     for tile in tile_dir:
         dsfs = dir_list(end_directory / tile, "files")
         for dsf in dsfs:
@@ -393,20 +488,22 @@ def mesh_dsf_read(end_directory:pathlib.Path, tag:str, dirname:str):
                         if DEBUG >= 2:
                             print(f"  [I] mesh_dsf_read: not a 7z archive. working on dsf directly")
                     else:
-                        dsffail_registry.append([f"{dsf}' in '{end_directory.parent.absolute()}", "ERR: READ: MiscError"])
+                        dsferror_registry.append([f"{dsf}' in '{end_directory.parent.absolute()}", "ERR: READ: MiscError"])
                         uncomp_flag = 0
                         if DEBUG >= 2:
-                            print(f"  [W] mesh_dsf_read: unhandled error '{e}'. working on dsf directly")
+                            print(f"  [E] mesh_dsf_read: unhandled error '{e}'. working on dsf directly")
                 # Now attempt to decode this DSF
                 dsf_data = mesh_dsf_decode(uncomp_path, dirname)
                 # If it returns an error, try the next one. Else, get out of the intra-tile loop
                 if str(dsf_data).startswith("ERR: ") or dsf_data == None:
-                    dsffail_registry.append([f"{dsf} in {end_directory.parent.absolute()}", dsf_data])
+                    dsferror_registry.append([f"{dsf} in {end_directory.parent.absolute()}", dsf_data])
                     uncomp_flag = 0
                     if DEBUG >= 2:
                         print(f"  [W] mesh_dsf_read: caught '{str(dsf_data)}' from mesh_dsf_decode")
                     continue
                 else:
+                    final_tile = tile
+                    final_dsf = dsf
                     break
         # If a DSF was successfully read, get out of the inter-tile loop. Else, move on to the next tile folder
         if uncomp_flag:
@@ -419,13 +516,32 @@ def mesh_dsf_read(end_directory:pathlib.Path, tag:str, dirname:str):
             print(f"  [E] mesh_dsf_read: tile loop was not broken, ie. no dsf could be read")
         return "ERR: READ: TileEmpty"
     # Search for sim/overlay in HEAD atom. If found, return True
-    if tag == b"sim/overlay\x001":
-        overlay = False
+    if tag == "sim/overlay 1":
+        overlay = None
         for atom_id, atom_size, atom_data in dsf_data:
             if atom_id == b"HEAD" and b"sim/overlay\x001" in atom_data:
                 overlay = True
                 break
-        # Store results to skip this step next time
+        else:
+            overlay = False
+        # Generate hashes
+        sha1 = hashlib.sha1()
+        md5 = hashlib.md5()
+        with open(end_directory / tile / dsf, 'rb') as dsf_file:
+            while True:
+                data = dsf_file.read(BUF_SIZE)
+                if not data:
+                    break
+                sha1.update(data)
+                md5.update(data)
+        # Store result to speed up future runs
+        dsf_cache_data_new = {f"{final_tile}/{final_dsf}": {"sim/overlay 1": overlay, "md5": md5.hexdigest(), "sha1": sha1.hexdigest()}}
+        dsf_cache_data.update(dsf_cache_data_new)
+        with open(end_directory.parent.absolute() / "sporganiser_cache.yaml", "w") as yaml_file:
+            yaml.dump(dsf_cache_data, yaml_file)
+        if DEBUG >= 2:
+            print(f"  [I] mesh_dsf_read: new cache written")
+        # Return result
         return overlay
     else:
         if DEBUG >= 2:
@@ -434,19 +550,15 @@ def mesh_dsf_read(end_directory:pathlib.Path, tag:str, dirname:str):
 
 
 # DEF: Check if the pack is an airport
-def process_type_apt(dirpath:pathlib.Path, dirname:str, file_line:str):
+def process_type_apt(dirpath:pathlib.Path, dirname:str, file_line:str, disable:bool):
     # Basic checks before we move further
     apt_path = dir_contains(dirpath, None, "apt.dat")
     if not apt_path:
         if DEBUG >= 2:
             print("  [I] process_type_apt: 'apt.dat' file not found")
         return
-    if apt_path and dirname == "Global Airports":
-        if DEBUG >= 2:
-            print("  [I] process_type_apt: saw 'global airports' as directory name")
-        return "Global"
+    # Attempt several codecs starting with utf-8 in case of obscure apt.dat files
     apt_lins = None
-    # Attempt several codecs starting with utf-8 for obscure apt.dat files
     for codec in ("utf-8", "charmap", "cp1252", "cp850"):
         try:
             if DEBUG >= 2:
@@ -459,28 +571,46 @@ def process_type_apt(dirpath:pathlib.Path, dirname:str, file_line:str):
     else:
         if DEBUG >= 2:
             print(f"  [W] process_type_apt: all codecs errored out")
+    # Loop through lines
     apt_type = None
-    # Check if airport or heliport or seaport, also check if default or prefab
     for line in apt_lins:
+        # Codes for airport, heliport, seaport
         if line.startswith("1 ") or line.startswith("16 ") or line.startswith("17 "):
-            if str_contains(dirname, ["prefab"], casesensitive = False):
-                apt_type = "Prefab"
-                if DEBUG >= 2:
-                    print("  [I] process_type_apt: saw 'prefab' in directory name")
+            # Check if prefab, default, or global
+            apt_prefab = process_quirk_prefab(dirpath, dirname)
+            if apt_prefab:
+                apt_type = apt_prefab
                 break
             elif str_contains(dirname, ["Demo Area", "X-Plane Airports", "X-Plane Landmarks", "Aerosoft"]):
                 apt_type = "Default"
                 if DEBUG >= 2:
                     print("  [I] process_type_apt: found to be default airport")
                 break
+            if apt_path and dirname == "Global Airports":
+                apt_type = "Global"
+                if DEBUG >= 2:
+                    print("  [I] process_type_apt: found to be global airport")
+                break
+            # Must be custom
             else:
                 apt_type = "Custom"
-                splitline = line.split(maxsplit=5)
-                airport_entry = (splitline[5].strip("\n"), dirname, file_line)
-                try:
-                    airport_registry[splitline[4]].append(airport_entry)
-                except KeyError:
-                    airport_registry[splitline[4]] = [airport_entry]
+                # If pack is not to be disabled, note ICAO code from this line
+                if not disable:
+                    splitline = line.split(maxsplit=5)
+                    icao_code = splitline[4]
+                    # Update icao registry
+                    try:
+                        icao_registry[icao_code] += 1
+                    except KeyError:
+                        icao_registry[icao_code] = 1
+                    # Update airport registry
+                    try:
+                        reg_index = airport_registry["path"].index(dirpath)
+                        airport_registry["icaos"][reg_index].append(icao_code)
+                    except ValueError:
+                        airport_registry["path"].append(dirpath)
+                        airport_registry["line"].append(file_line)
+                        airport_registry["icaos"].append([icao_code])
     return apt_type
 
 
@@ -492,28 +622,24 @@ def process_type_mesh(dirpath:pathlib.Path, dirname:str):
         if DEBUG >= 2:
             print("  [I] process_type_mesh: 'Earth nav data' folder not found")
         return
-    # Read DSF and check for sim/overlay. If error or None returned, log in mesh error registry
-    overlay = mesh_dsf_read(end_path, b"sim/overlay\x001", dirname)
+    # Read DSF and check for sim/overlay. If error or None returned, log in dsf error registry
+    overlay = mesh_dsf_read(end_path, "sim/overlay 1", dirname)
     if str(overlay).startswith("ERR: ") or overlay == None:
         if DEBUG >= 2:
             print(f"  [W] process_type_mesh: caught '{str(overlay)}' from mesh_dsf_read")
-        dsffail_registry.append([dirpath, overlay])
+        dsferror_registry.append([dirpath, overlay])
         return
-    autoortho = process_misc_ao(dirpath, dirname)
+    mesh_ao = process_quirk_ao(dirpath, dirname)
     if overlay:
-        if autoortho in ["AO Overlay"]:
-            if DEBUG >= 2:
-                print(f"  [I] process_type_mesh: found to be {autoortho.lower()}")
-            return autoortho
+        if mesh_ao in ["AO Overlay"]:
+            return mesh_ao
         elif str_contains(dirname, ["X-Plane Landmarks"]):
             return "Default Overlay"
         else:
             return "Custom Overlay"
     else:
-        if autoortho in ["AO Region", "AO Root"]:
-            if DEBUG >= 2:
-                print(f"  [I] process_type_mesh: found to be {autoortho.lower()}")
-            return autoortho
+        if mesh_ao in ["AO Region", "AO Root"]:
+            return mesh_ao
         elif dir_contains(dirpath, ["textures", "terrain"]):
             return "Ortho Mesh"
         else:
@@ -522,54 +648,77 @@ def process_type_mesh(dirpath:pathlib.Path, dirname:str):
 
 # DEF: Check misc types
 def process_type_other(dirpath:pathlib.Path, dirname:str):
+    other_result = None
     if dir_contains(dirpath, ["library.txt"], "generic"):
-        return "Library"
-    elif DEBUG >= 2:
-            print("  [I] process_type_other: 'library.txt' file not found")
+        other_result = "Library"
     if dir_contains(dirpath, ["plugins"]):
-        return "Plugin"
+        other_result = "Plugin"
+    if DEBUG >= 2 and other_result:
+        print(f"  [I] process_type_other: found to be {other_result}")
     elif DEBUG >= 2:
-            print("  [I] process_type_other: 'plugins' folder not found")
+        print(f"  [I] process_type_other: neither library.txt nor plugins folder found")
+    return other_result
+
+
+# DEF: Check if the pack is a prefab airport
+def process_quirk_prefab(dirpath:pathlib.Path, dirname:str):
+    prefab_result = None
+    if str_contains(dirname, ["prefab"], casesensitive = False):
+        prefab_result = "Prefab Apt"
+    if DEBUG >= 2 and prefab_result:
+        print(f"    [I] process_quirk_prefab: found to be {prefab_result}")
+    return prefab_result
 
 
 # DEF: Check if the pack is from autoortho
-def process_misc_ao(dirpath:pathlib.Path, dirname:str):
+def process_quirk_ao(dirpath:pathlib.Path, dirname:str):
     ao_regions = ["na", "sa", "eur", "afr", "asi", "aus_pac"]
+    ao_result = None
     if str_contains(dirname, ["yAutoOrtho_Overlays"]):
-        return "AO Overlay"
+        ao_result = "AO Overlay"
     elif str_contains(dirname, [f"z_ao_{region}" for region in ao_regions]):
-        return "AO Region"
+        ao_result = "AO Region"
     elif str_contains(dirname, ["z_autoortho"]):
-        return "AO Root"
+        ao_result = "AO Root"
+    if DEBUG >= 2 and ao_result:
+        print(f"    [I] process_quirk_ao: found to be {ao_result}")
+    return ao_result
 
 
 # DEF: Classify the pack
 def process_main(path, shortcut = False):
-    # Define values passed to functions
     abs_path = SCENERY_PATH / path
     name = str(path)
+    classified = False
+    # Define path formatted for ini
     if shortcut:
         ini_path = str(abs_path)
     else:
         ini_path = str(path)
-    classified = False
-    if ini_path in disable_registry:
-        return_line = f"{disable_registry[ini_path]}{ini_path}/\n"
+    # Define line formatted for ini
+    disable = ini_path in disable_registry
+    if disable:
         del disable_registry[ini_path]
-        line = return_line
-    if shortcut:
-        line = f"{FILE_LINE_ABS}{ini_path}/\n"
-    else:
-        line = f"{FILE_LINE_REL}{ini_path}/\n"
+        if shortcut:
+            line = f"{FILE_DISAB_LINE_ABS}{ini_path}/\n"
+        else:
+            line = f"{FILE_DISAB_LINE_REL}{ini_path}/\n"
+    else:    
+        if shortcut:
+            line = f"{FILE_LINE_ABS}{ini_path}/\n"
+        else:
+            line = f"{FILE_LINE_REL}{ini_path}/\n"
     # First see if it's an airport
     if not classified:
-        pack_type = process_type_apt(abs_path, name, line)
+        pack_type = process_type_apt(abs_path, name, line, disable)
         classified = True
+        # Standard definitions
         if pack_type in ["Global", "Default", "Custom"]:
             airports[pack_type].append(line)
             if DEBUG >= 2:
                 print(f"  [I] process_main: classified as '{pack_type.lower()} Airport'")
-        elif pack_type in ["Prefab"]:
+        # Quirk handling
+        elif pack_type in ["Prefab Apt"]:
             quirks[pack_type].append(line)
             if DEBUG >= 2:
                 print(f"  [I] process_main: classified as quirk '{pack_type.lower()}'")
@@ -579,8 +728,9 @@ def process_main(path, shortcut = False):
     if not classified:
         pack_type = process_type_mesh(abs_path, name)
         if not pack_type: 
-            pack_type = process_misc_ao(abs_path, name)
+            pack_type = process_quirk_ao(abs_path, name)
         classified = True
+        # Standard definitions
         if pack_type in ["Default Overlay", "Custom Overlay"]:
             overlays[pack_type[:-8]].append(line)
             if DEBUG >= 2:
@@ -589,6 +739,7 @@ def process_main(path, shortcut = False):
             meshes[pack_type[:-5]].append(line)
             if DEBUG >= 2:
                 print(f"  [I] process_main: classified as '{pack_type.lower()}'")
+        # Quirk handling
         elif pack_type in ["AO Overlay", "AO Region", "AO Root"]:
             quirks[pack_type].append(line)
             if DEBUG >= 2:
@@ -599,10 +750,16 @@ def process_main(path, shortcut = False):
     if not classified:
         pack_type = process_type_other(abs_path, name)
         classified = True
+        # Standard definitions
         if pack_type in ["Plugin", "Library"]:
             misc[pack_type].append(line)
             if DEBUG >= 2:
                 print(f"  [I] process_main: classified as '{pack_type.lower()}'")
+        # Quirk handling
+        elif pack_type in []:
+            quirks[pack_type].append(line)
+            if DEBUG >= 2:
+                print(f"  [I] process_main: classified as quirk '{pack_type.lower()}'")
         else:
             classified = False
     # Give up. Add this to the list of packs we couldn't sort
@@ -637,7 +794,7 @@ for directory in folder_list:
             maxlength = len(progress_str)
         print(f"\r{progress_str}", end = "\r")
     process_main(directory)
-    if DEBUG >= 1:
+    if DEBUG >= 1 and DEBUG < 2:
         print(f"Main: Finished dir: {directory}")
 print()
 
@@ -668,7 +825,7 @@ for shtcut_path in shtcut_list:
                 print(f"\r{progress_str}", end = "\r")
                 printed = True
             process_main(folder_path, shortcut = True)
-            if DEBUG >= 1:
+            if DEBUG >= 1 and DEBUG < 2:
                 print(f"Main: Finished shortcut: {folder_path}")
             continue
         else: 
@@ -705,15 +862,15 @@ if not airports["Global"]:
     airports["Global"].append(XP12_GLOBAL_AIRPORTS)
 
 # Display time taken in this operation
-print(f"Took me {time.time() - measure_time.pop()} seconds to classify.")
+print(f"Done! Took me {time.time() - measure_time.pop()} seconds to classify.")
 
 
 # Display all packs that errored when reading DSFs (if debugging enabled)
-if dsffail_registry and DEBUG:
+if dsferror_registry and DEBUG:
     print("\n[W] Main: I was unable to read DSF files from some scenery packs. Please check if they load correctly in X-Plane.")
     print("[^] Main: This does not necessarily mean that the pack could not be classified. Such packs will be listed separately.")
     print("[^] Main: I will list them out now with the error type.")
-    for dsffail in dsffail_registry:
+    for dsffail in dsferror_registry:
         print(f"[^]   {dsffail[1]} in '{dsffail[0]}'")
 
 
@@ -764,123 +921,132 @@ if unsorted_registry:
     print(f"Waited {time.time() - measure_time.pop()} seconds for your input")
 
 
-# Check custom airport clashes using airport_registry and ask the user if they want to resolve
+# Time and variable declarations for printing
 print("\nI will now check for Custom Airport overlaps...")
 measure_time.append(time.time())
-conflicts = 0
-# Check how many conflicting airports we have
-for icao in airport_registry:
-    if len(airport_registry[icao]) > 1: 
-        conflicts+=1
-# Self-explanatory
-if conflicts:
+airport_list = {}
+list_num = 0
+
+# Check how many conflicting ICAOs we have and store them in icao_conflicts
+for icao in icao_registry:
+    if icao_registry[icao] > 1: 
+        icao_conflicts.append(icao)
+
+# Display conflicting packs in a list
+for reg_index in range(len(airport_registry["path"])):
+    airport_path = airport_registry["path"][reg_index]
+    airport_line = airport_registry["line"][reg_index]
+    airport_icaos = airport_registry["icaos"][reg_index]
+    # Check if this airport's ICAOs are among the conflicting ones. If not, skip it
+    airport_icaos_conflicting = list(set(airport_icaos) & set(icao_conflicts))
+    airport_icaos_conflicting.sort()
+    if airport_icaos_conflicting:
+        pass
+    else:
+        continue
+    # Print path and ICAOs
+    airport_icao_string = ""
+    for icao in airport_icaos_conflicting:
+        airport_icao_string += f"{icao} "
+    print(f"    {list_num}: '{airport_path}': {airport_icao_string[:-1]}")
+    # Log this with the number in list
+    airport_list[list_num] = airport_line
+    # Incremenent i for the next pack
+    list_num += 1
+
+# Check if user wants to sort conflicts
+if icao_conflicts:
+    # TODO: Import preferences
     while True:
-        resolve_conflicts = input(f"Found {conflicts} overlapping Custom Airports. Shall we figure out their correct order now? (yes/no or y/n): ").lower()
+        resolve_conflicts = input(f"\nI've listed out all airport packs with their overlapping ICAOs. Would you like to sort them now? (yes/no or y/n): ").lower()
         if resolve_conflicts in ["y","yes"]:
-            print("Ok, I will write them in the correct priority order with your input.")
             resolve_conflicts = True
             break
         elif resolve_conflicts in ["n","no"]:
-            print("Ok, I will only display them.")
+            print("Alright, I'll skip this part.")
             resolve_conflicts = False
             break
         else:
             print("  Sorry, I didn't understand.")
-    print(f"Waited {time.time() - measure_time.pop()} seconds for your input")
-else:
-    measure_time.pop()
-    resolve_conflicts = None
-
-
-# Display (and if opted for, resolve) all custom airport clashes
-measure_time.append(time.time())
-for icao in airport_registry:
-    # If this icao had only one pack, skip it
-    if len(airport_registry[icao]) == 1: 
-        continue
-    # Display the conflicting packs in a list
-    print(f"\nI found {len(airport_registry[icao])} airports for {icao}.")
-    print("I'll list them out with a number, the airport name as per the pack, and the pack's folder's name.")
-    airport_multiple = {}
-    i = 0
-    for airport in airport_registry[icao]:
-        airport_multiple [i] = airport[2]
-        print(f"    {i}: '{airport[0]}' in '{airport[1]}'")
-        i+=1
     if not resolve_conflicts:
-        continue
+        print(f"Waited {time.time() - measure_time.pop()} seconds for your input")
+    else:
+        measure_time.pop()
+else:
+    print("No overlaps found.")
+    resolve_conflicts = None
+    measure_time.pop()
+
+# Time declarations for sorting
+measure_time.append(time.time())
+
+# Sorting algorithm
+if resolve_conflicts:
     tmp_valid_flag = True
-    # Get user input.
     while True:
+        # Get input if the user chose to resolve
         newline = "\n"
-        order = input(f"{'' if tmp_valid_flag else newline}Enter the numbers in order of priority from higher to lower, and separated by comma(s): ")
-        # Create a copy of Custom Airports list to work on
-        tmp_customairports = copy.deepcopy(airports["Custom"])
+        order = input(f"{'' if tmp_valid_flag else newline}Enter the numbers in order of priority from higher to lower, separated by commas: ")
         tmp_valid_flag = True
         # There is no concievable case in which this throws an error, but one can never be sure
         try:
             order = order.strip(" ").split(",")
+            order[:] = [int(item) for item in order if item != '']
         except:
-            print("  I couldn't read this input!")
+            print("    I couldn't read this input!")
             tmp_valid_flag = False
-        if not tmp_valid_flag:
-            print("  Do read the instructions if you're unsure about how to input your preferences.")
-            continue
-        # Check the length of the input given
-        input_difference = len(order) - len(airport_multiple)
-        if input_difference > 0:
-            print(f"  I got {input_difference} more {'entry' if input_difference == 1 else 'entries'} than I was expecting!")
+        # Check if all the packs shown are present in this input
+        if (set(order) != set(range(list_num))) and tmp_valid_flag:
+            print("    Hmm, that wasn't what I was expecting...")
             tmp_valid_flag = False
-        elif input_difference < 0:
-            print(f"  I got {-input_difference} {'less entry' if -input_difference == 1 else 'fewer entries'} than I was expecting!")
-            tmp_valid_flag = False
+        # If this was an invalid input, show the user what a possible input would look like
         if not tmp_valid_flag:
-            print("  Do read the instructions if you're unsure about how to input your preferences.")
-            continue
-        # Manipulate the customairports copy according to the user input. If it fails somehow, reset the copy and start over
-        for sl in order:
-            try:
-                tmp_customairports.append(tmp_customairports.pop(tmp_customairports.index(airport_multiple[int(sl)])))
-            except Exception as e:
-                if isinstance(e, IndexError):
-                    print("  Invalid index given!")
-                elif isinstance(e, TypeError):
-                    print("  Saw non-numeric characters between commas!")
-                else:
-                    print("  That didn't work.")
-                tmp_valid_flag = False
-                break
-        if not tmp_valid_flag:
-            print(f"  Do read the instructions if you're unsure about how to input your preferences. Resetting preferences for {icao}.")
-            continue
-        # If we've made it this far, then everything has gone well. We can now write the copy back into the main list
-        print(f"  Preferences updated for {icao}!")
-        airports["Custom"] = copy.deepcopy(tmp_customairports)
-        break
-# Display time after this ordeal if chosen to resolve, else advise to go through the ini manually, else happily say we saw nothing
-if resolve_conflicts:
-    print(f"Took me {time.time() - measure_time.pop()} seconds to resolve conflicts with your help.\n")
-elif conflicts:
+            print("    I recommend you read the instructions if you're not sure what to do.")
+            print("    For now though, I will show a basic example for your case below.")
+            example_str = ""
+            for i in range(list_num):
+                example_str += f"{i},"
+            print(f"    {example_str[:-1]}")
+            print("    You can copy-paste this as-is, or move the numbers as you wish.")
+        # If this input's valid, move on
+        else:
+            break
+    # Manipulate custom airports list
+    tmp_customairports = copy.deepcopy(airports["Custom"])
+    tmp_customoverlaps = list()
+    for i in order:
+        tmp_customoverlaps.append(tmp_customairports.pop(tmp_customairports.index(airport_list[i])))
+    tmp_customoverlaps.extend(tmp_customairports)
+    airports["Custom"] = copy.deepcopy(tmp_customoverlaps)
+
+# Display time after this ordeal if chosen to resolve, else advise to go through the ini manually, else do nothing
+    print(f"Done! Took me {time.time() - measure_time.pop()} seconds with your help.\n")
+elif icao_conflicts:
     measure_time.pop()
     print("You may wish to manually go through the ini file for corrections.\n")
 else:
     measure_time.pop()
-    print("I didn't detect any conflicts.\n")
 
 
 scenery_ini_path_dep = pathlib.Path(SCENERY_PATH / "scenery_packs.ini")
+scenery_ini_path_nay = pathlib.Path(SCENERY_PATH / "scenery_packs_unsorted.ini")
 scenery_ini_path_bak = pathlib.Path(f"{scenery_ini_path_dep}.bak")
 
-
 # Remove the old backup file, if present
-if scenery_ini_path_bak.exists():
-    print("I will now delete the old scenery_packs.ini.bak")
-    scenery_ini_path_bak.unlink()
+try:
+    if scenery_ini_path_bak.exists():
+        print("I will now delete the old scenery_packs.ini.bak")
+        scenery_ini_path_bak.unlink()
+except Exception as e:
+    print(f"Failed to delete! Maybe check the file permissions? Error: '{e}'")
 
 # Back up the current scenery_packs.ini file
-if scenery_ini_path_dep.exists():
-    print("I will now back up the current scenery_packs.ini")
-    scenery_ini_path_dep.rename(scenery_ini_path_bak)
+try:
+    if scenery_ini_path_dep.exists():
+        print("I will now back up the current scenery_packs.ini")
+        scenery_ini_path_dep.rename(scenery_ini_path_bak)
+except Exception as e:
+    print(f"Failed to rename .ini to .ini.bak! Maybe check the file permissions? Error: '{e}'")
 
 # Write out the new scenery_packs.ini file
 print("I will now write the new scenery_packs.ini")
@@ -891,7 +1057,7 @@ packs = {
     "unsorted": unsorted_registry,
     "airports: custom": airports["Custom"],
     "airports: default": airports["Default"],
-    "quirks: prefab": quirks["Prefab"],
+    "quirks: prefab apt": quirks["Prefab Apt"],
     "airports: global": airports["Global"],
     "misc: plugin": misc["Plugin"],
     "misc: library": misc["Library"],
@@ -903,7 +1069,12 @@ packs = {
     "quirks: ao root": quirks["AO Root"],
     "meshes: terrain": meshes["Terrain"]
     }
-# Write this whole thing to the ini
+# Write unsorted packs to scenery_packs_unsorted.ini
+with open(scenery_ini_path_nay, "w+", encoding = "utf-8") as f:
+    f.write(FILE_BEGIN)
+    if packs["unsorted"]:
+        f.writelines(packs["unsorted"])
+# Write everything to scenery_packs.ini
 with open(scenery_ini_path_dep, "w+", encoding = "utf-8") as f:
     f.write(FILE_BEGIN)
     for pack_type in packs:

@@ -1,4 +1,4 @@
-# Scenery Pack Organiser - XP10/11/12 v2.1r6
+# Scenery Pack Organiser - XP10/11/12 v2.2r1
 
 Are you tired of sifting through all the packs in the Custom Scenery folder and reordering them manually?\
 Do you hate having to start and quit X-Plane just to add new scenery packs to the file so you can organise it?\
@@ -23,24 +23,24 @@ It will read and sort all scenery packs, carry over DISABLED tags, check for air
 There is often confusion between `python` and `python3`. Doing the above will help you decide how to invoke python when running the script. If both commands give you an output, use the one that displays the highest version number.
 <br>
 
-Required non-standard Python3 libraries: `py7zr`, and if you're on Windows, `pywin32` too. You can install them yourself using `pip install <library name>`, or you can let the program install them for you :wink:.
+Required non-standard Python3 libraries: `py7zr`, `pyyaml`, and if you're on Windows, `pywin32`. You can install them yourself using `pip install <library name>`, or you can let the program install them for you :wink:.
 
 ## Usage
 ### How to run
 - On Windows, you can run it simply by double-clicking. If this doesn't work, try the next method
 
 - On any platform, first open Command Prompt or Terminal and change the active directory to where the program is located\
-Then do `python3 organiser_v2.1r6.py` or `python organiser_v2.1r6.py`\
+Then do `python3 organiser_v2.2r1.py` or `python organiser_v2.2r1.py`\
 To decide which one to use, refer the installation instructions
 
-- *Extra: If the program crashes, try running with `--debug-1` or `--debug-2` added at the end of the command shown above to see where it crashes*\
+- *NOTE: If the program crashes, try running with `--debug-1` or `--debug-2` added at the end of the command shown above to see where it crashes*\
 *Higher numbers correspond to greater verbosity, ie. debug 2 will show even more than debug 1 would*\
 *Of course, you can also use this if you just want to feel cool - there's no performance hit!*
 
 
 ### How to use
 At various stages, the program might ask you for input. Here, I'll go through them in order and explain each one:
-1. The program will try to automatically locate X-Plane. It will list out all locations it finds. To use one of those, enter the serial number as displayed in the list\
+1. The program will try to automatically locate X-Plane. It will list out all locations it finds. To use one of those, enter the number as displayed in the list\
 If this doesn't work, or if you want to use a different location, simply paste the path from your file explorer\
 *NOTE: Do not format it as a shell path (eg. wrapping it in quotes, escaping whitespaces and backslashes, etc)*
 
@@ -50,53 +50,56 @@ If this doesn't work, or if you want to use a different location, simply paste t
 
 4. If the program was unable to sort some scenery packs, it will display them and offer a choice to write them into the ini. If you choose not to, they will be written as disabled packs
 
-5. If the program detects multiple airport packs for an ICAO code, it will give you a choice to prioritise them within the program
-    - It will first display the ICAO code, and then list the packs with a serial number, the airport name as per the pack, and the pack's folder's name
-    - If you opted to resolve, you will need to define the priorities. To do so, go through the list and enter the serial numbers (from the list) in your desired order, separated by commas. The highest priority should go first, and the lowest last
+5. If the program sees multiple airport packs for the same ICAOs, it will list them out with a number, the folder path, and the overlapping ICAOs
+    - It will then ask if you want to define their priorities yourself
+    - If you do, you'll only need to give one input: the numbers displayed in the above list separated by commas
+    - The packs will be written in the order you give it - first one highest, last one lowest
 
 6. If an existing `scenery_packs.ini` is found, it will be renamed to `scenery_packs.ini.bak`. Old backup files will be removed upon completion of the script
-To roll back, simply drop the `.bak` extension
+If you want to roll back to the old ini, delete the existing one and then remove the `.bak` extension
 
 7. Upon exiting, if the program can find X-Plane, it will offer to launch X-Plane\
-*NOTE: You must not close the console window, otherwise X-Plane will also abruptly close*
+*NOTE: Do not close the console window, otherwise X-Plane might also abruptly close*
 
 
 ## Features
-- Sorts scenery packs according to the hierarchy specified below:\
-*Note: Italics means a pack that requires special attention*
+- Sorts scenery packs according to the hierarchy specified below:
     - Custom Airports
     - Default Airports
-    - *Prefab Airports*
+    - *[Prefab Airports](https://forums.x-plane.org/index.php?/files/file/27582-prefab-scenery-for-25000-airports/)*
     - Global Airports
     - Scenery Plugins
     - Scenery Libraries
     - Custom Overlays
     - Default Overlays
-    - *AutoOrtho Overlays*
+    - *[AutoOrtho](https://forums.x-plane.org/index.php?/forums/topic/259020-autoortho-streaming-ortho-imagery-for-x-plane-12-and-11/) Overlays*
     - Orthophotos
-    - *AutoOrtho Ortho Regions*
+    - *[AutoOrtho](https://forums.x-plane.org/index.php?/forums/topic/259020-autoortho-streaming-ortho-imagery-for-x-plane-12-and-11/) Regions*
     - Terrain Meshes
 - Supports Windows shortcuts (.LNK files, eg. for SAM Library)
 - Supports [Prefab Airports](https://forums.x-plane.org/index.php?/files/file/27582-prefab-scenery-for-25000-airports/) and [AutoOrtho](https://forums.x-plane.org/index.php?/forums/topic/259020-autoortho-streaming-ortho-imagery-for-x-plane-12-and-11/)
 - Attempts to locate X-Plane installs automatically, letting you choose between the results or manually inputting an X-Plane install path
 - Offers to carry over SCENERY_PACK_DISABLED tags from existing scenery_packs.ini
-- Checks for Custom Airport conflicts and resolves them with user input
+- Checks for Custom Airport overlaps and resolves them with user input
 - Will warn you of folders-in-folder (It's more common than you'd think)
 - Supports XP10/11's and XP12's Global Airports entry simultaneously
 
 
 ## Credits/Changelog
-Any contributions (features or bugfixes) are very welcome :grin:. [Here's the project GitHub](https://github.com/therectifier/SceneryPacksOrganiser/).\
-Feel free to message me on Discord - my username is `therectifier`. I'm also present in the X-Plane Community and Official servers.\
+Any contributions (features or bugfixes) are very welcome :grin:. [Here's the project GitHub](https://github.com/iy4vet/SceneryPacksOrganiser/).\
+Feel free to message me on Discord - my username is `iy4vet`. I'm also present in the X-Plane Community and Official servers.\
 <br>
 A huge thank-you to these awesome people:
-- [@supercoder186](https://forums.x-plane.org/index.php?/profile/567626-supercoder186/) for his original utility and encouragement 
-- [@Brady](https://forums.x-plane.org/index.php?/profile/7654-brady/) for the suggestion to clean up old X-Plane installs
-- [@carlos maida](https://forums.x-plane.org/index.php?/profile/113644-carlos-maida/) for his immense help with testing and AutoOrtho support
-- [@Birdy.dma](https://forums.x-plane.org/index.php?/profile/147165-birdydma/) for the suggestion to launch X-Plane within the program
-- [@cyl8](https://forums.x-plane.org/index.php?/profile/327870-cyl8/) for his inputs on UI and general testing
+- [@supercoder186](https://forums.x-plane.org/index.php?/profile/567626-supercoder186/)
+- [@Brady](https://forums.x-plane.org/index.php?/profile/7654-brady/)
+- [@carlos maida](https://forums.x-plane.org/index.php?/profile/113644-carlos-maida/)
+- [@Birdy.dma](https://forums.x-plane.org/index.php?/profile/147165-birdydma/)
+- [@cyl8](https://forums.x-plane.org/index.php?/profile/327870-cyl8/)
 
 This project is licensed under the GNU GPL v2.
+- 2.2r1 - Add shebang to allow double-clicking on Unix systems
+- 2.2b2 - Now save results of DSF parse so future runs are faster
+- 2.2b1 - Complete rewrite of airport overlap system. Minor bugfixes
 - 2.1r6 - Hotfix for Windows .lnk shortcut parsing
 - 2.1r5 - Removed `pkg_resources` following deprecation in Python 3.12. Added debugging CLI options
 - 2.1r4 - Fixed bug in selection of DSF to be read. Restored option to install missing Python3 libraries. Performance improvement: removal of need to "scan" Custom Scenery folder. UI improvement: refer to Custom Airport conflicts as "overlaps"; made prompt message clearer
@@ -126,6 +129,6 @@ This project is licensed under the GNU GPL v2.
 ## What's planned...
 Naturally, fixing the above :grin:. I also want to really solidify AutoOrtho and SAM support - people have been telling me there's some extra witchcraft it does that messes up this one's output.\
 <br>
-Some features I'm considering for version 2.2: Making the clash resolution a bit smarter - some airport packs actually contain MULTIPLE airports... so it might ask you to sort the same one over and over again. Then there's the whole deal of saving and remembering these preferences - but obviously this can only be done once the algorithm itself is solid. Maybe in the future I'll have it cache some of its results to speed things up, especially with high-res meshes! I'm also considering potential options to let YOU decide how you want your pack sorted. Perhaps little text files you can copy-paste to your scenery pack would be a good option...\
+There's also saving preferences of custom airport overlaps, so you can simply reuse what you did last time. I'm also considering potential options to let you decide how you want your packs sorted. Perhaps little text files you can copy-paste to your scenery pack would be a good option...\
 <br>
-However I've been bogged down by school exams for a while now... so I definitely will get get these done, but probably not very soon :pensive:. In the meantime, if you find any bugs or have a feature in mind please do leave a comment or shoot me a message and I'll do my best to get to it.
+If there's anything else you'd like to see added, send me a message or create a pull request on GitHub!
