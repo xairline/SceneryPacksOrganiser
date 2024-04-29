@@ -1,4 +1,4 @@
-# Scenery Pack Organiser - XP10/11/12 v2.2r1
+# Scenery Pack Organiser - XP10/11/12 v3.0a1
 
 Are you tired of sifting through all the packs in the Custom Scenery folder and reordering them manually?\
 Do you hate having to start and quit X-Plane just to add new scenery packs to the file so you can organise it?\
@@ -35,7 +35,7 @@ Required non-standard Python3 libraries: `py7zr`, `pyyaml`, and if you're on Win
 Then do `python3 organiser.py` or `python organiser.py`\
 To decide which one to use, refer the installation instructions
 
-- *NOTE: If the program crashes, try running with `--debug-1` or `--debug-2` added at the end of the command shown above to see where it crashes*\
+- ~~*NOTE: If the program crashes, try running with `--debug-1` or `--debug-2` added at the end of the command shown above to see where it crashes*~~\
 *Higher numbers correspond to greater verbosity, ie. debug 2 will show even more than debug 1 would*\
 *Of course, you can also use this if you just want to feel cool - there's no performance hit!*
 
@@ -99,6 +99,7 @@ A huge thank-you to these awesome people:
 - [@cyl8](https://forums.x-plane.org/index.php?/profile/327870-cyl8/)
 
 This project is licensed under the GNU GPL v2.
+- 3.0a1 - Refactored code for improved flexibility and legibility
 - 2.2r1 - Add shebang to allow double-clicking on Unix systems
 - 2.2b2 - Now save results of DSF parse so future runs are faster
 - 2.2b1 - Complete rewrite of airport overlap system. Minor bugfixes
