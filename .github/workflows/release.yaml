@@ -56,7 +56,9 @@ jobs:
         with:
           path: ./build
 
-      - run: ls -l ./build
+      - run: |
+          mv build/ubuntu-latest-build/organiser build/ubuntu-latest-build/organiser_linux
+          mv build/macos-13-build/organiser build/macos-13-build/organiser_macos
 
       - name: Create Release
         id: create_release
